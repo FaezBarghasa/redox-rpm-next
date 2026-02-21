@@ -15,6 +15,7 @@ flate2 = "1"
 xz2 = "0.1"
 zstd = "0.13"
 sha2 = "0.10"
-
+pkgar = "0.1.13"
+ed25519-dalek = "2.1.1"
 [features]
 default = []

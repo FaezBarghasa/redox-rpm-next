@@ -1,0 +1,12 @@
+[package]
+name = "cargo-redox"
+version = "0.1.0"
+edition = "2024"
+description = "Cargo wrapper with automated target detection for Redox OS Profiles"
+authors = ["Redox OS Developers"]
+license = "MIT"
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"
