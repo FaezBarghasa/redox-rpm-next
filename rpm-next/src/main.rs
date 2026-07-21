@@ -53,6 +53,10 @@ mod pacman;
 mod playstore;
 mod winget;
 
+mod patch_merger;
+mod reproducible;
+mod container;
+
 // Re-export repository types
 pub use apt::AptRepository;
 pub use dnf::DnfRepository;
