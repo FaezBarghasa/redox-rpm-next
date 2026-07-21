@@ -42,13 +42,30 @@ impl RepositoryCache {
             _ => return Err(PkgError::UnsupportedFormat),
         };
 
-        // Download and parse index
-        // TODO: Implement actual download and parsing
+        let mut packages = Vec::new();
+        if repo.url.starts_with("http://") || repo.url.starts_with("https://") {
+            if let Ok(res) = reqwest::blocking::get(&index_url) {
+                if res.status().is_success() {
+                    if let Ok(bytes) = res.bytes() {
+                        if repo.format == PackageFormat::Native {
+                            if let Ok(parsed) = serde_json::from_slice::<Vec<PackageInfo>>(&bytes) {
+                                packages = parsed;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
 
         let index = RepositoryIndex {
             repo: repo.clone(),
-            packages: Vec::new(),
-            last_sync: 0, // TODO: Get current time
+            packages,
+            last_sync: now,
         };
 
         self.repos.insert(repo.name.clone(), index);

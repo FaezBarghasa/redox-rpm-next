@@ -5,7 +5,7 @@
 use std::io::{Read, Seek};
 use std::path::Path;
 
-use crate::{Dependency, PackageFormat, PackageInfo, PkgError};
+use crate::{ConstraintOp, Dependency, PackageFormat, PackageInfo, PkgError, VersionConstraint};
 
 /// Parse a .deb package
 pub fn parse_deb(path: &Path) -> Result<PackageInfo, PkgError> {

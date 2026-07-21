@@ -222,9 +222,8 @@ impl PacmanRepository {
                                 if let Ok(path) = entry.path() {
                                     if path.file_name().and_then(|n| n.to_str()) == Some("desc") {
                                         if let Ok(content) = std::io::read_to_string(entry) {
-                                            if let Ok(pkg) = PacmanPackage::parse_desc(&content) {
-                                                self.packages.entry(pkg.name.clone()).or_default().push(pkg);
-                                            }
+                                            let pkg = parse_desc(&content);
+                                            self.packages.entry(pkg.name.clone()).or_default().push(pkg);
                                         }
                                     }
                                 }

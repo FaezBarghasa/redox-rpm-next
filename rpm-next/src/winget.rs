@@ -221,24 +221,27 @@ impl WingetRepository {
         if let Ok(res) = reqwest::blocking::get(&manifest_path) {
             if res.status().is_success() {
                 if let Ok(text) = res.text() {
-                    let mut pkg = WingetPackage {
-                        id: package_id.to_string(),
-                        version: "latest".to_string(),
-                        name: name.to_string(),
+                    let mut pkg = WingetManifest {
+                        package_id: package_id.to_string(),
                         publisher: publisher.to_string(),
-                        description: String::new(),
+                        name: name.to_string(),
+                        version: "latest".to_string(),
                         license: String::new(),
+                        description: String::new(),
+                        homepage: String::new(),
                         installer_type: InstallerType::Msi,
-                        download_url: String::new(),
-                        sha256: String::new(),
+                        installer_url: String::new(),
+                        installer_sha256: String::new(),
+                        architecture: "x64".to_string(),
+                        dependencies: Vec::new(),
                     };
                     for line in text.lines() {
                         if let Some(val) = line.strip_prefix("PackageVersion: ") {
                             pkg.version = val.trim().to_string();
                         } else if let Some(val) = line.strip_prefix("InstallerUrl: ") {
-                            pkg.download_url = val.trim().to_string();
+                            pkg.installer_url = val.trim().to_string();
                         } else if let Some(val) = line.strip_prefix("InstallerSha256: ") {
-                            pkg.sha256 = val.trim().to_string();
+                            pkg.installer_sha256 = val.trim().to_string();
                         }
                     }
                     return Ok(pkg);
