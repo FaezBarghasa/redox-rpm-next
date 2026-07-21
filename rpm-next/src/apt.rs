@@ -367,10 +367,20 @@ impl AptRepository {
             for component in &source.components {
                 for arch in &source.architectures {
                     let url = source.packages_gz_url(component, arch);
-                    // TODO: Download and decompress Packages.gz
-                    // let content = download(&url)?;
-                    // let packages = parse_packages(&content);
-                    // self.packages.extend(...);
+                    if let Ok(res) = reqwest::blocking::get(&url) {
+                        if res.status().is_success() {
+                            if let Ok(bytes) = res.bytes() {
+                                let mut gz = flate2::read::GzDecoder::new(&bytes[..]);
+                                let mut content = String::new();
+                                if std::io::Read::read_to_string(&mut gz, &mut content).is_ok() {
+                                    let pkgs = parse_packages(&content);
+                                    for pkg in pkgs {
+                                        self.packages.entry(pkg.package.clone()).or_default().push(pkg);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

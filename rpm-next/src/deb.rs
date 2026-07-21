@@ -112,10 +112,27 @@ fn parse_depends(deps: &str) -> Vec<Dependency> {
             // Parse version constraint
             if let Some(idx) = dep.find('(') {
                 let name = dep[..idx].trim().to_string();
-                // TODO: Parse version constraint
+                let rest = dep[idx..].trim_matches(|c| c == '(' || c == ')');
+                let parts: Vec<&str> = rest.split_whitespace().collect();
+                let version_constraint = if parts.len() >= 2 {
+                    let op = match parts[0] {
+                        "=" => ConstraintOp::Eq,
+                        "<" => ConstraintOp::Lt,
+                        "<=" => ConstraintOp::Le,
+                        ">" => ConstraintOp::Gt,
+                        ">=" => ConstraintOp::Ge,
+                        _ => ConstraintOp::Eq,
+                    };
+                    Some(VersionConstraint {
+                        operator: op,
+                        version: parts[1].to_string(),
+                    })
+                } else {
+                    None
+                };
                 Some(Dependency {
                     name,
-                    version_constraint: None,
+                    version_constraint,
                 })
             } else {
                 Some(Dependency {

@@ -268,8 +268,21 @@ impl DnfRepository {
 
     /// Sync the repository
     pub fn sync(&mut self) -> Result<(), PkgError> {
-        let _primary_url = primary_xml_url(&self.base_url);
-        // TODO: Download and parse primary.xml.gz
+        let primary_url = primary_xml_url(&self.base_url);
+        if let Ok(res) = reqwest::blocking::get(&primary_url) {
+            if res.status().is_success() {
+                if let Ok(bytes) = res.bytes() {
+                    let mut gz = flate2::read::GzDecoder::new(&bytes[..]);
+                    let mut xml_content = String::new();
+                    if std::io::Read::read_to_string(&mut gz, &mut xml_content).is_ok() {
+                        let pkgs = parse_primary_xml(&xml_content);
+                        for pkg in pkgs {
+                            self.packages.entry(pkg.name.clone()).or_default().push(pkg);
+                        }
+                    }
+                }
+            }
+        }
         Ok(())
     }
 

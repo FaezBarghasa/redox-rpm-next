@@ -213,12 +213,39 @@ impl WingetRepository {
             .ok_or_else(|| PkgError::PackageNotFound(package_id.to_string()))?
             .to_lowercase();
 
-        let _manifest_path = format!(
+        let manifest_path = format!(
             "{}/manifests/{}/{}/{}/",
             WINGET_GITHUB_URL, first_letter, publisher, name
         );
 
-        // TODO: Fetch and parse manifest
+        if let Ok(res) = reqwest::blocking::get(&manifest_path) {
+            if res.status().is_success() {
+                if let Ok(text) = res.text() {
+                    let mut pkg = WingetPackage {
+                        id: package_id.to_string(),
+                        version: "latest".to_string(),
+                        name: name.to_string(),
+                        publisher: publisher.to_string(),
+                        description: String::new(),
+                        license: String::new(),
+                        installer_type: InstallerType::Msi,
+                        download_url: String::new(),
+                        sha256: String::new(),
+                    };
+                    for line in text.lines() {
+                        if let Some(val) = line.strip_prefix("PackageVersion: ") {
+                            pkg.version = val.trim().to_string();
+                        } else if let Some(val) = line.strip_prefix("InstallerUrl: ") {
+                            pkg.download_url = val.trim().to_string();
+                        } else if let Some(val) = line.strip_prefix("InstallerSha256: ") {
+                            pkg.sha256 = val.trim().to_string();
+                        }
+                    }
+                    return Ok(pkg);
+                }
+            }
+        }
+
         Err(PkgError::PackageNotFound(package_id.to_string()))
     }
 }

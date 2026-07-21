@@ -122,13 +122,32 @@ pub struct FDroidPackage {
 
 /// Parse F-Droid index.json
 pub fn parse_fdroid_index(json: &str) -> Result<Vec<FDroidApp>, PkgError> {
-    // In production, use serde_json
-    // This is a simplified parser
-
+    let value: serde_json::Value = serde_json::from_str(json).map_err(|e| PkgError::ParseError(e.to_string()))?;
     let mut apps = Vec::new();
 
-    // TODO: Parse JSON properly
-    // For now, return empty list
+    if let Some(apps_obj) = value.get("apps").and_then(|v| v.as_object()) {
+        for (pkg_name, app_val) in apps_obj {
+            let name = app_val.get("name").and_then(|v| v.as_str()).unwrap_or(pkg_name).to_string();
+            let summary = app_val.get("summary").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let description = app_val.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let license = app_val.get("license").and_then(|v| v.as_str()).unwrap_or("Unknown").to_string();
+            let web_site = app_val.get("webSite").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            apps.push(FDroidApp {
+                package_name: pkg_name.clone(),
+                name,
+                summary,
+                description,
+                license,
+                web_site,
+                source_code: String::new(),
+                issue_tracker: String::new(),
+                categories: Vec::new(),
+                anti_features: Vec::new(),
+                suggested_version_code: 1,
+                packages: Vec::new(),
+            });
+        }
+    }
 
     Ok(apps)
 }
@@ -215,7 +234,17 @@ impl PlayStoreRepository {
     pub fn sync(&mut self) -> Result<(), PkgError> {
         if self.use_fdroid {
             let index_url = format!("{}/index-v2.json", self.fdroid_url);
-            // TODO: Download and parse index
+            if let Ok(res) = reqwest::blocking::get(&index_url) {
+                if res.status().is_success() {
+                    if let Ok(text) = res.text() {
+                        if let Ok(apps) = parse_fdroid_index(&text) {
+                            for app in apps {
+                                self.apps.insert(app.package_name.clone(), app);
+                            }
+                        }
+                    }
+                }
+            }
         }
         Ok(())
     }

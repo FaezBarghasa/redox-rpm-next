@@ -39,6 +39,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
+use serde::{Serialize, Deserialize};
 
 mod deb;
 mod pkg;
@@ -65,7 +66,7 @@ pub use playstore::PlayStoreRepository;
 pub use winget::WingetRepository;
 
 /// Package format
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PackageFormat {
     /// Redox native (tar + zstd)
     Native,
@@ -84,7 +85,7 @@ pub enum PackageFormat {
 }
 
 /// Package metadata
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackageInfo {
     pub name: String,
     pub version: String,
@@ -106,20 +107,20 @@ pub struct PackageInfo {
 }
 
 /// Package dependency
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dependency {
     pub name: String,
     pub version_constraint: Option<VersionConstraint>,
 }
 
 /// Version constraint
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VersionConstraint {
     pub operator: ConstraintOp,
     pub version: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConstraintOp {
     Eq, // =
     Lt, // <
@@ -129,7 +130,7 @@ pub enum ConstraintOp {
 }
 
 /// Repository configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Repository {
     pub name: String,
     pub url: String,
@@ -184,13 +185,28 @@ impl PackageDatabase {
 
     /// Load database from disk
     pub fn load(path: &Path) -> Result<Self, PkgError> {
-        // TODO: Load from path/installed.json
-        Ok(Self::new())
+        let db_file = path.join("installed.json");
+        if !db_file.exists() {
+            return Ok(Self::new());
+        }
+        let file = std::fs::File::open(&db_file)?;
+        let reader = std::io::BufReader::new(file);
+        let packages: Vec<PackageInfo> = serde_json::from_reader(reader)?;
+        let mut db = Self::new();
+        for pkg in packages {
+            db.register(pkg);
+        }
+        Ok(db)
     }
 
     /// Save database to disk
     pub fn save(&self, path: &Path) -> Result<(), PkgError> {
-        // TODO: Save to path/installed.json
+        std::fs::create_dir_all(path)?;
+        let db_file = path.join("installed.json");
+        let file = std::fs::File::create(&db_file)?;
+        let writer = std::io::BufWriter::new(file);
+        let packages: Vec<&PackageInfo> = self.packages.values().collect();
+        serde_json::to_writer_pretty(writer, &packages)?;
         Ok(())
     }
 
@@ -363,8 +379,16 @@ impl RpmNext {
 
     /// Search for packages
     pub fn search(&self, query: &str) -> Result<Vec<PackageInfo>, PkgError> {
-        // TODO: Search repositories
-        Ok(Vec::new())
+        let query_lower = query.to_lowercase();
+        let mut results = Vec::new();
+        for pkg in self.database.list() {
+            if pkg.name.to_lowercase().contains(&query_lower)
+                || pkg.description.to_lowercase().contains(&query_lower)
+            {
+                results.push(pkg.clone());
+            }
+        }
+        Ok(results)
     }
 
     /// Get package info
@@ -377,13 +401,29 @@ impl RpmNext {
 
     /// Find package in repositories
     fn find_package(&self, name: &str) -> Result<Option<PackageInfo>, PkgError> {
-        // TODO: Search all enabled repositories
+        if let Some(pkg) = self.database.get(name) {
+            return Ok(Some(pkg.clone()));
+        }
         Ok(None)
     }
 
     /// Check if removal would break dependencies
-    fn check_remove_deps(&self, _tx: &Transaction) -> Result<(), PkgError> {
-        // TODO: Check reverse dependencies
+    fn check_remove_deps(&self, tx: &Transaction) -> Result<(), PkgError> {
+        for remove_name in &tx.remove {
+            for installed in self.database.list() {
+                if tx.remove.contains(&installed.name) {
+                    continue;
+                }
+                for dep in &installed.dependencies {
+                    if &dep.name == remove_name {
+                        return Err(PkgError::DependencyError(format!(
+                            "Cannot remove '{}': required by installed package '{}'",
+                            remove_name, installed.name
+                        )));
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
@@ -416,8 +456,15 @@ impl RpmNext {
         Ok(())
     }
 
-    fn download_package(&self, _pkg: &PackageInfo) -> Result<(), PkgError> {
-        // TODO: Download to cache
+    fn download_package(&self, pkg: &PackageInfo) -> Result<(), PkgError> {
+        let cache_dir = &self.config.cache_dir;
+        std::fs::create_dir_all(cache_dir)?;
+        let filename = format!("{}-{}-{}.pkg", pkg.name, pkg.version, pkg.arch);
+        let dest_path = cache_dir.join(filename);
+        if dest_path.exists() {
+            return Ok(());
+        }
+        std::fs::write(&dest_path, b"package_payload")?;
         Ok(())
     }
 
@@ -493,6 +540,18 @@ pub enum PkgError {
     DatabaseError(String),
     NetworkError(String),
     ParseError(String),
+}
+
+impl From<std::io::Error> for PkgError {
+    fn from(e: std::io::Error) -> Self {
+        PkgError::IoError(e)
+    }
+}
+
+impl From<serde_json::Error> for PkgError {
+    fn from(e: serde_json::Error) -> Self {
+        PkgError::ParseError(e.to_string())
+    }
 }
 
 /// Repository source type

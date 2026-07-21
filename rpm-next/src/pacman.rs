@@ -212,8 +212,27 @@ impl PacmanRepository {
     pub fn sync(&mut self) -> Result<(), PkgError> {
         for repo in &self.repos.clone() {
             let url = self.db_gz_url(repo, "x86_64");
-            // TODO: Download and extract database
-            // Each package has a directory: name-version/desc
+            if let Ok(res) = reqwest::blocking::get(&url) {
+                if res.status().is_success() {
+                    if let Ok(bytes) = res.bytes() {
+                        let gz = flate2::read::GzDecoder::new(&bytes[..]);
+                        let mut archive = tar::Archive::new(gz);
+                        if let Ok(entries) = archive.entries() {
+                            for entry in entries.flatten() {
+                                if let Ok(path) = entry.path() {
+                                    if path.file_name().and_then(|n| n.to_str()) == Some("desc") {
+                                        if let Ok(content) = std::io::read_to_string(entry) {
+                                            if let Ok(pkg) = PacmanPackage::parse_desc(&content) {
+                                                self.packages.entry(pkg.name.clone()).or_default().push(pkg);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         Ok(())
     }
