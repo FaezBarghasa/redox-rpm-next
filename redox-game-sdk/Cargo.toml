@@ -7,4 +7,4 @@ description = "Redox OS Game Development SDK & System Abstraction Layer"
 [dependencies]
 libredox = "0.1.3"
 log = "0.4"
-redox_syscall = "0.5"
+redox_syscall = "0.9.0"
