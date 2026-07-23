@@ -1,59 +1,35 @@
-# RPM-Next Documentation
+# `rpm-next`
 
-RPM-Next is a universal package manager for RedoxOS, designed to support multiple package formats and external repositories seamlessly.
-
-## Architecture
-
-RPM-Next follows a modular architecture consisting of the following components:
-
-- **Core Package Manager (`main.rs`)**: Orchestrates the installation, removal, and upgrading of packages.
-- **Repository Manager (`repository.rs`, `UnifiedRepositoryManager`)**: Manages multiple repository sources (APT, DNF, Pacman, etc.) and provides a unified interface for searching and syncing.
-- **Dependency Resolver (`resolver.rs`)**: Implements a SAT-based dependency resolution engine to ensure all package requirements are met.
-- **Format Adapters**:
-  - `deb.rs`: Debian/Ubuntu package format support.
-  - `rpm.rs`: Red Hat/Fedora package format support.
-  - `pkg.rs`: Redox native package format support.
-- **External Repository Adapters**:
-  - `apt.rs`: Connects to Debian/Ubuntu APT repositories (includes Pop!_OS support).
-  - `dnf.rs`: Connects to Fedora/RHEL DNF repositories.
-  - `pacman.rs`: Connects to Arch Linux Pacman repositories.
-  - `winget.rs`: Connects to Windows Winget repositories.
-  - `playstore.rs`: Connects to Android F-Droid/Play Store.
+`rpm-next` is a universal package manager designed for multi-ABI and cross-platform Redox OS deployments. It supports native Redox packages as well as foreign package formats (Debian, RPM, Alpine, Windows, Android) through custom format adapters and external repository integration.
 
 ## Features
 
-- **Multi-Format Support**: Install `.deb`, `.rpm`, and native `.pkg.tar.zst` packages.
-- **Cross-Platform Repositories**: Search and sync from diverse sources including APT, DNF, and Winget.
-- **Dependency Resolution**: Automatic calculation of dependency trees and conflict detection.
-- **Transaction-Based Operations**: Atomic package operations with rollback capabilities (planned).
-- **Pop!_OS Integration**: First-class support for System76 Pop!_OS repositories (Main, Proprietary, and CUDA).
+- **Multi-Format Package Support**:
+  - **Native**: `.pkg.tar.zst` (Redox native tar + zstd packages)
+  - **Debian**: `.deb` (ar + tar + gz)
+  - **RPM**: `.rpm` (cpio + xz/zstd)
+  - **Alpine**: `.apk` (tar + gz)
+  - **Windows**: `.msi` and `.msix`
+  - **Android**: `.apk` (ZIP + DEX)
+- **Multi-Repository Architecture**: Integrated repository adapters for Debian APT, Fedora DNF, Arch Pacman, Windows Winget, and Android Play Store/F-Droid.
+- **Dependency & Conflict Solver**: Automatic dependency graph resolution and conflict validation.
+- **Transaction Engine**: Atomic transactional engine tracking installation, upgrade, and removal sequences with disk state database persistence (`installed.json`).
 
-## Usage
-
-### Synchronization
+## Usage & Commands
 
 ```bash
+# Synchronize all enabled repositories
 rpm-next sync
-```
 
-### Searching
-
-```bash
+# Search for packages across all package repos (Pacman, APT, DNF, Winget, F-Droid)
 rpm-next search <query>
-```
 
-### Installation
-
-```bash
+# Install packages with dependency resolution
 rpm-next install <package_name>
+
+# Remove installed packages
+rpm-next remove <package_name>
+
+# Upgrade installed packages
+rpm-next upgrade
 ```
-
-### Viewing Package Info
-
-```bash
-rpm-next info <package_name>
-```
-
-## Internal Synchronization
-
-The `UnifiedRepositoryManager` ensures that queries are handled by the most appropriate source based on a predefined priority order: Native > Pacman > APT > DNF > Winget > Android.
