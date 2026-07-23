@@ -1,8 +1,8 @@
 [package]
-name = "aether-sdk"
+name = "redox-game-sdk"
 version = "0.1.0"
 edition = "2021"
-description = "AetherOS Game Development SDK & System Abstraction Layer for Redox OS"
+description = "Redox OS Game Development SDK & System Abstraction Layer"
 
 [dependencies]
 libredox = "0.1.3"
